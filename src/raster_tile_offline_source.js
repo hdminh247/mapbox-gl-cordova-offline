@@ -84,33 +84,60 @@ class RasterTileSourceOffline extends RasterTileSource {
 
         const base64Prefix = 'data:image/' + this.imageFormat + ';base64,';
 
-        this.db.then((db) => {
-            db.transaction((txn) => {
-                txn.executeSql(query, params, (tx, res) => {
-                    if (res.rows.length) {
-                        callback(undefined,
-                            {
-                                data: base64Prefix + res.rows.item(0).base64_tile_data,
-                                cacheControl: null,
-                                expires: null
-                            });
+        if(isType && isType('electron')){
+            this.db.run(query, params, (error, res) => {
+                if(error){
+                    callback(error); // Error executing SQL
+                }
+                if (res.length) {
+                    callback(undefined,
+                        {
+                            data: base64Prefix + res[0].base64_tile_data,
+                            cacheControl: null,
+                            expires: null
+                        });
 
-                    } else {
-                        console.error('tile ' + params.join(',') + ' not found');
-                        callback(undefined,
-                            {
-                                data: this._transparentPngUrl,
-                                cacheControl: null,
-                                expires: null
-                            });
-                    }
-                });
-            }, (error) => {
-                callback(error); // Error executing SQL
+                } else {
+                    console.error('tile ' + params.join(',') + ' not found');
+                    callback(undefined,
+                        {
+                            data: this._transparentPngUrl,
+                            cacheControl: null,
+                            expires: null
+                        });
+                }
             });
-        }).catch((err) => {
-            callback(err);
-        });
+        }else{
+            this.db.then((db) => {
+                db.transaction((txn) => {
+                    txn.executeSql(query, params, (tx, res) => {
+                        if (res.rows.length) {
+                            callback(undefined,
+                                {
+                                    data: base64Prefix + res.rows.item(0).base64_tile_data,
+                                    cacheControl: null,
+                                    expires: null
+                                });
+
+                        } else {
+                            console.error('tile ' + params.join(',') + ' not found');
+                            callback(undefined,
+                                {
+                                    data: this._transparentPngUrl,
+                                    cacheControl: null,
+                                    expires: null
+                                });
+                        }
+                    });
+                }, (error) => {
+                    callback(error); // Error executing SQL
+                });
+            }).catch((err) => {
+                callback(err);
+            });
+        }
+
+
     }
 
 

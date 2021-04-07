@@ -17303,7 +17303,12 @@ Database.openDatabase = function openDatabase (dbLocation) {
         }
     } else {
         if (isType && isType('electron')) {
-            return Promise.resolve(dbLocation);
+            var sqlite3 = require('sqlite3').verbose();
+            return new sqlite3.Database('database', function (err) {
+                if (err) {
+                    return console.error(err.message);
+                }
+            });
         } else {
             return Promise.reject(new Error('cordova-sqlite-ext plugin not available. ' + 'Please install the plugin and make sure this code is run after onDeviceReady event'));
         }
@@ -17400,30 +17405,52 @@ var RasterTileSourceOffline = (function (RasterTileSource$$1) {
             coordY
         ];
         var base64Prefix = 'data:image/' + this.imageFormat + ';base64,';
-        this.db.then(function (db) {
-            db.transaction(function (txn) {
-                txn.executeSql(query, params, function (tx, res) {
-                    if (res.rows.length) {
-                        callback(undefined, {
-                            data: base64Prefix + res.rows.item(0).base64_tile_data,
-                            cacheControl: null,
-                            expires: null
-                        });
-                    } else {
-                        console.error('tile ' + params.join(',') + ' not found');
-                        callback(undefined, {
-                            data: this$1._transparentPngUrl,
-                            cacheControl: null,
-                            expires: null
-                        });
-                    }
-                });
-            }, function (error) {
-                callback(error);
+        if (isType && isType('electron')) {
+            this.db.run(query, params, function (error, res) {
+                if (error) {
+                    callback(error);
+                }
+                if (res.length) {
+                    callback(undefined, {
+                        data: base64Prefix + res[0].base64_tile_data,
+                        cacheControl: null,
+                        expires: null
+                    });
+                } else {
+                    console.error('tile ' + params.join(',') + ' not found');
+                    callback(undefined, {
+                        data: this$1._transparentPngUrl,
+                        cacheControl: null,
+                        expires: null
+                    });
+                }
             });
-        }).catch(function (err) {
-            callback(err);
-        });
+        } else {
+            this.db.then(function (db) {
+                db.transaction(function (txn) {
+                    txn.executeSql(query, params, function (tx, res) {
+                        if (res.rows.length) {
+                            callback(undefined, {
+                                data: base64Prefix + res.rows.item(0).base64_tile_data,
+                                cacheControl: null,
+                                expires: null
+                            });
+                        } else {
+                            console.error('tile ' + params.join(',') + ' not found');
+                            callback(undefined, {
+                                data: this$1._transparentPngUrl,
+                                cacheControl: null,
+                                expires: null
+                            });
+                        }
+                    });
+                }, function (error) {
+                    callback(error);
+                });
+            }).catch(function (err) {
+                callback(err);
+            });
+        }
     };
     RasterTileSourceOffline.prototype._getImage = function _getImage (coord, callback) {
         return this._getBlob(coord, function (err, imgData) {
@@ -39385,23 +39412,38 @@ var MBTilesSource = (function (VectorTileSource$$1) {
             x,
             y
         ];
-        this.db.then(function (db) {
-            db.transaction(function (txn) {
-                txn.executeSql(query, params, function (tx, res) {
-                    if (res.rows.length) {
-                        var base64Data = res.rows.item(0).base64_tile_data;
-                        var rawData = inflate_1$1.inflate(base64Js.toByteArray(base64Data));
-                        callback(undefined, base64Js.fromByteArray(rawData));
-                    } else {
-                        callback(new Error('tile ' + params.join(',') + ' not found'));
-                    }
-                });
-            }, function (error) {
-                callback(error);
+        if (isType && isType('electron')) {
+            this.db.run(query, params, function (err, res) {
+                if (err) {
+                    callback(err);
+                }
+                if (res.length) {
+                    var base64Data = res[0].base64_tile_data;
+                    var rawData = inflate_1$1.inflate(base64Js.toByteArray(base64Data));
+                    callback(undefined, base64Js.fromByteArray(rawData));
+                } else {
+                    callback(new Error('tile ' + params.join(',') + ' not found'));
+                }
             });
-        }).catch(function (err) {
-            callback(err);
-        });
+        } else {
+            this.db.then(function (db) {
+                db.transaction(function (txn) {
+                    txn.executeSql(query, params, function (tx, res) {
+                        if (res.rows.length) {
+                            var base64Data = res.rows.item(0).base64_tile_data;
+                            var rawData = inflate_1$1.inflate(base64Js.toByteArray(base64Data));
+                            callback(undefined, base64Js.fromByteArray(rawData));
+                        } else {
+                            callback(new Error('tile ' + params.join(',') + ' not found'));
+                        }
+                    });
+                }, function (error) {
+                    callback(error);
+                });
+            }).catch(function (err) {
+                callback(err);
+            });
+        }
     };
     MBTilesSource.prototype.loadTile = function loadTile (tile, callback) {
         var coord = tile.tileID.canonical;

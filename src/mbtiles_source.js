@@ -22,23 +22,40 @@ class MBTilesSource extends VectorTileSource {
     readTile(z, x, y, callback) {
         const query = 'SELECT BASE64(tile_data) AS base64_tile_data FROM tiles WHERE zoom_level=? AND tile_column=? AND tile_row=?';
         const params = [z, x, y];
-        this.db.then(function(db) {
-            db.transaction(function (txn) {
-                txn.executeSql(query, params, function (tx, res) {
-                    if (res.rows.length) {
-                        const base64Data = res.rows.item(0).base64_tile_data;
-                        const rawData = pako.inflate(base64js.toByteArray(base64Data));
-                        callback(undefined, base64js.fromByteArray(rawData)); // Tile contents read, callback success.
-                    } else {
-                        callback(new Error('tile ' + params.join(',') + ' not found'));
-                    }
-                });
-            }, function (error) {
-                callback(error); // Error executing SQL
+
+        if(isType && isType('electron')){
+            this.db.run(query, params, function (err, res) {
+                if(err){
+                    callback(err); // Error executing SQL
+                }
+                if (res.length) {
+                    const base64Data = res[0].base64_tile_data;
+                    const rawData = pako.inflate(base64js.toByteArray(base64Data));
+                    callback(undefined, base64js.fromByteArray(rawData)); // Tile contents read, callback success.
+                } else {
+                    callback(new Error('tile ' + params.join(',') + ' not found'));
+                }
             });
-        }).catch(function(err) {
-            callback(err);
-        });
+        }else{
+            this.db.then(function(db) {
+                db.transaction(function (txn) {
+                    txn.executeSql(query, params, function (tx, res) {
+                        if (res.rows.length) {
+                            const base64Data = res.rows.item(0).base64_tile_data;
+                            const rawData = pako.inflate(base64js.toByteArray(base64Data));
+                            callback(undefined, base64js.fromByteArray(rawData)); // Tile contents read, callback success.
+                        } else {
+                            callback(new Error('tile ' + params.join(',') + ' not found'));
+                        }
+                    });
+                }, function (error) {
+                    callback(error); // Error executing SQL
+                });
+            }).catch(function(err) {
+                callback(err);
+            });
+        }
+
     }
 
     loadTile(tile, callback) {
