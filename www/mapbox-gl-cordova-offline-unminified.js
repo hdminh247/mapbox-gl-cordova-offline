@@ -1,4 +1,4 @@
-/* Mapbox GL JS is licensed under the 3-Clause BSD License. Full text of license: https://github.com/mapbox/mapbox-gl-js/blob/v0.2.1/LICENSE.txt */
+/* Mapbox GL JS is licensed under the 3-Clause BSD License. Full text of license: https://github.com/mapbox/mapbox-gl-js/blob/v0.2.2/LICENSE.txt */
 (function (global, factory) {
 typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
 typeof define === 'function' && define.amd ? define(factory) :
@@ -17303,7 +17303,7 @@ Database.openDatabase = function openDatabase (dbLocation) {
         }
     } else {
         if (isType && isType('electron')) {
-            resolve(dbLocation);
+            return Promise.resolve(dbLocation);
         } else {
             return Promise.reject(new Error('cordova-sqlite-ext plugin not available. ' + 'Please install the plugin and make sure this code is run after onDeviceReady event'));
         }
