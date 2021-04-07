@@ -39,8 +39,14 @@ class Database {
                     "Please install the plugin and make sure this code is run after onDeviceReady event"));
             }
         } else {
-            return Promise.reject(new Error("cordova-sqlite-ext plugin not available. " +
-                "Please install the plugin and make sure this code is run after onDeviceReady event"));
+            // Electron app
+            if(isType && isType('electron')){
+                resolve(dbLocation)
+            }else{
+                return Promise.reject(new Error("cordova-sqlite-ext plugin not available. " +
+                    "Please install the plugin and make sure this code is run after onDeviceReady event"));
+            }
+
         }
     }
 
@@ -48,7 +54,8 @@ class Database {
         console.log("Copying database to application storage directory");
         return new Promise(function (resolve, reject) {
             const absPath =  cordova.file.applicationDirectory + 'www/' + dbLocation;
-            resolveLocalFileSystemURL(absPath, resolve, reject);
+            console.log(`Mapbox GL is opening: ${dbLocation}`)
+            resolveLocalFileSystemURL(dbLocation, resolve, reject);
         }).then(function (sourceFile) {
             return new Promise(function (resolve, reject) {
                 sourceFile.copyTo(targetDir, dbName, resolve, reject);
