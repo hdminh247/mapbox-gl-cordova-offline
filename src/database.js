@@ -41,7 +41,7 @@ class Database {
         } else {
             // Electron app
             if(isType && isType('electron')){
-                resolve(dbLocation)
+                return Promise.resolve(dbLocation)
             }else{
                 return Promise.reject(new Error("cordova-sqlite-ext plugin not available. " +
                     "Please install the plugin and make sure this code is run after onDeviceReady event"));
