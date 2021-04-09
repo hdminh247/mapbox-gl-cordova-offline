@@ -20,22 +20,32 @@ class MBTilesSource extends VectorTileSource {
     }
 
     readTile(z, x, y, callback) {
-        const query = 'SELECT BASE64(tile_data) AS base64_tile_data FROM tiles WHERE zoom_level=? AND tile_column=? AND tile_row=?';
+        let query = 'SELECT BASE64(tile_data) AS base64_tile_data FROM tiles WHERE zoom_level=? AND tile_column=? AND tile_row=?';
+
+        if(isType && isType('electron')){
+            query = 'SELECT tile_data AS base64_tile_data FROM tiles WHERE zoom_level=? AND tile_column=? AND tile_row=?';
+        }
         const params = [z, x, y];
 
         if(isType && isType('electron')){
-            this.db.run(query, params, function (err, res) {
-                if(err){
-                    callback(err); // Error executing SQL
-                }
-                if (res.length) {
-                    const base64Data = res[0].base64_tile_data;
-                    const rawData = pako.inflate(base64js.toByteArray(base64Data));
-                    callback(undefined, base64js.fromByteArray(rawData)); // Tile contents read, callback success.
-                } else {
-                    callback(new Error('tile ' + params.join(',') + ' not found'));
-                }
-            });
+            if(this.db){
+                this.db.all(query, params, function (err, res) {
+                    if(err){
+                        callback(err); // Error executing SQL
+                    }else{
+                        if (res && res.length) {
+                            // Convert to base64
+                            let base64Data = Buffer.from(res[0].base64_tile_data).toString('base64');
+                            const rawData = pako.inflate(base64js.toByteArray(base64Data));
+                            callback(undefined, base64js.fromByteArray(rawData)); // Tile contents read, callback success.
+                        } else {
+                            callback(new Error('tile ' + params.join(',') + ' not found'));
+                        }
+                    }
+                });
+            }else{
+                callback(`DB is not initialized yet`); // Error executing SQL
+            }
         }else{
             this.db.then(function(db) {
                 db.transaction(function (txn) {

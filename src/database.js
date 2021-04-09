@@ -1,5 +1,3 @@
-
-
 class Database {
 
     static openDatabase(dbLocation) {
@@ -32,6 +30,8 @@ class Database {
                     } else {
                         params.location = 'default';
                     }
+
+                    console.log(`>>CORDOVA: Opening database at ${dbLocation}`)
                     return sqlitePlugin.openDatabase(params);
                 });
             } else {
@@ -39,20 +39,24 @@ class Database {
                     "Please install the plugin and make sure this code is run after onDeviceReady event"));
             }
         } else {
-            // Electron app
-            if(isType && isType('electron')){
-                var sqlite3 = require('sqlite3').verbose();
+                // Electron app
+                if(isType && isType('electron')){
+                    let instance = null;
+                    var mapDb = sqlite3.verbose();
 
-                return new sqlite3.Database('database', (err) => {
-                    if (err) {
-                        return console.error(err.message);
-                    }
-                });
-            }else{
-                return Promise.reject(new Error("cordova-sqlite-ext plugin not available. " +
-                    "Please install the plugin and make sure this code is run after onDeviceReady event"));
-            }
+                    console.log(`>>ELECTRON: Opening database at ${dbLocation}`)
 
+                    instance =  new mapDb.Database(dbLocation, (err) => {
+                        if (err) {
+                            console.log(`>> ERROR: ${err.message}`)
+                        }
+                    });
+
+                    return (instance)
+                }else{
+                    return Promise.reject(new Error("cordova-sqlite-ext plugin not available. " +
+                        "Please install the plugin and make sure this code is run after onDeviceReady event"));
+                }
         }
     }
 

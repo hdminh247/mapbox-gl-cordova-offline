@@ -79,34 +79,47 @@ class RasterTileSourceOffline extends RasterTileSource {
 
         const coordY = Math.pow(2, coord.z) -1 - coord.y;
 
-        const query = 'SELECT BASE64(tile_data) AS base64_tile_data FROM tiles WHERE zoom_level = ? AND tile_column = ? AND tile_row = ?';
+        let query = 'SELECT BASE64(tile_data) AS base64_tile_data FROM tiles WHERE zoom_level = ? AND tile_column = ? AND tile_row = ?';
+
+        if(isType && isType('electron')){
+            query = 'SELECT tile_data AS base64_tile_data FROM tiles WHERE zoom_level = ? AND tile_column = ? AND tile_row = ?';
+        }
+
         const params = [coord.z, coord.x, coordY];
 
         const base64Prefix = 'data:image/' + this.imageFormat + ';base64,';
 
         if(isType && isType('electron')){
-            this.db.run(query, params, (error, res) => {
-                if(error){
-                    callback(error); // Error executing SQL
-                }
-                if (res.length) {
-                    callback(undefined,
-                        {
-                            data: base64Prefix + res[0].base64_tile_data,
-                            cacheControl: null,
-                            expires: null
-                        });
+            if(this.db){
+                this.db.all(query, params, (error, res) => {
+                    if(error){
+                        callback(error); // Error executing SQL
+                    }else{
+                        if (res && res.length) {
 
-                } else {
-                    console.error('tile ' + params.join(',') + ' not found');
-                    callback(undefined,
-                        {
-                            data: this._transparentPngUrl,
-                            cacheControl: null,
-                            expires: null
-                        });
-                }
-            });
+                            // Convert to base64
+                            let base64Data = Buffer.from(res[0].base64_tile_data).toString('base64');
+                            callback(undefined,
+                                {
+                                    data: base64Prefix + base64Data,
+                                    cacheControl: null,
+                                    expires: null
+                                });
+
+                        } else {
+                            console.error('tile ' + params.join(',') + ' not found');
+                            callback(undefined,
+                                {
+                                    data: this._transparentPngUrl,
+                                    cacheControl: null,
+                                    expires: null
+                                });
+                        }
+                    }
+                });
+            }else{
+                callback(`DB is not initialized yet`); // Error executing SQL
+            }
         }else{
             this.db.then((db) => {
                 db.transaction((txn) => {

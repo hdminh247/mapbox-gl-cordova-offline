@@ -17296,6 +17296,7 @@ Database.openDatabase = function openDatabase (dbLocation) {
                 } else {
                     params.location = 'default';
                 }
+                console.log((">>CORDOVA: Opening database at " + dbLocation));
                 return sqlitePlugin.openDatabase(params);
             });
         } else {
@@ -17303,12 +17304,15 @@ Database.openDatabase = function openDatabase (dbLocation) {
         }
     } else {
         if (isType && isType('electron')) {
-            var sqlite3 = require('sqlite3').verbose();
-            return new sqlite3.Database('database', function (err) {
+            var instance = null;
+            var mapDb = sqlite3.verbose();
+            console.log((">>ELECTRON: Opening database at " + dbLocation));
+            instance = new mapDb.Database(dbLocation, function (err) {
                 if (err) {
-                    return console.error(err.message);
+                    console.log((">> ERROR: " + (err.message)));
                 }
             });
+            return instance;
         } else {
             return Promise.reject(new Error('cordova-sqlite-ext plugin not available. ' + 'Please install the plugin and make sure this code is run after onDeviceReady event'));
         }
@@ -17399,6 +17403,9 @@ var RasterTileSourceOffline = (function (RasterTileSource$$1) {
 
         var coordY = Math.pow(2, coord.z) - 1 - coord.y;
         var query = 'SELECT BASE64(tile_data) AS base64_tile_data FROM tiles WHERE zoom_level = ? AND tile_column = ? AND tile_row = ?';
+        if (isType && isType('electron')) {
+            query = 'SELECT tile_data AS base64_tile_data FROM tiles WHERE zoom_level = ? AND tile_column = ? AND tile_row = ?';
+        }
         var params = [
             coord.z,
             coord.x,
@@ -17406,25 +17413,31 @@ var RasterTileSourceOffline = (function (RasterTileSource$$1) {
         ];
         var base64Prefix = 'data:image/' + this.imageFormat + ';base64,';
         if (isType && isType('electron')) {
-            this.db.run(query, params, function (error, res) {
-                if (error) {
-                    callback(error);
-                }
-                if (res.length) {
-                    callback(undefined, {
-                        data: base64Prefix + res[0].base64_tile_data,
-                        cacheControl: null,
-                        expires: null
-                    });
-                } else {
-                    console.error('tile ' + params.join(',') + ' not found');
-                    callback(undefined, {
-                        data: this$1._transparentPngUrl,
-                        cacheControl: null,
-                        expires: null
-                    });
-                }
-            });
+            if (this.db) {
+                this.db.all(query, params, function (error, res) {
+                    if (error) {
+                        callback(error);
+                    } else {
+                        if (res && res.length) {
+                            var base64Data = Buffer.from(res[0].base64_tile_data).toString('base64');
+                            callback(undefined, {
+                                data: base64Prefix + base64Data,
+                                cacheControl: null,
+                                expires: null
+                            });
+                        } else {
+                            console.error('tile ' + params.join(',') + ' not found');
+                            callback(undefined, {
+                                data: this$1._transparentPngUrl,
+                                cacheControl: null,
+                                expires: null
+                            });
+                        }
+                    }
+                });
+            } else {
+                callback("DB is not initialized yet");
+            }
         } else {
             this.db.then(function (db) {
                 db.transaction(function (txn) {
@@ -39407,24 +39420,32 @@ var MBTilesSource = (function (VectorTileSource$$1) {
     };
     MBTilesSource.prototype.readTile = function readTile (z, x, y, callback) {
         var query = 'SELECT BASE64(tile_data) AS base64_tile_data FROM tiles WHERE zoom_level=? AND tile_column=? AND tile_row=?';
+        if (isType && isType('electron')) {
+            query = 'SELECT tile_data AS base64_tile_data FROM tiles WHERE zoom_level=? AND tile_column=? AND tile_row=?';
+        }
         var params = [
             z,
             x,
             y
         ];
         if (isType && isType('electron')) {
-            this.db.run(query, params, function (err, res) {
-                if (err) {
-                    callback(err);
-                }
-                if (res.length) {
-                    var base64Data = res[0].base64_tile_data;
-                    var rawData = inflate_1$1.inflate(base64Js.toByteArray(base64Data));
-                    callback(undefined, base64Js.fromByteArray(rawData));
-                } else {
-                    callback(new Error('tile ' + params.join(',') + ' not found'));
-                }
-            });
+            if (this.db) {
+                this.db.all(query, params, function (err, res) {
+                    if (err) {
+                        callback(err);
+                    } else {
+                        if (res && res.length) {
+                            var base64Data = Buffer.from(res[0].base64_tile_data).toString('base64');
+                            var rawData = inflate_1$1.inflate(base64Js.toByteArray(base64Data));
+                            callback(undefined, base64Js.fromByteArray(rawData));
+                        } else {
+                            callback(new Error('tile ' + params.join(',') + ' not found'));
+                        }
+                    }
+                });
+            } else {
+                callback("DB is not initialized yet");
+            }
         } else {
             this.db.then(function (db) {
                 db.transaction(function (txn) {
